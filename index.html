@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#123b63">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="حاسبة العقارات">
+<title>حاسبة العقارات</title>
+<link rel="manifest" href="manifest.json">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#f3f6f9;color:#17212b;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Tahoma",Arial,sans-serif}
+.app{max-width:1100px;margin:auto;padding:18px}
+header{background:#123b63;color:#fff;border-radius:18px;padding:20px;text-align:center;box-shadow:0 8px 25px #0001}
+h1{margin:0 0 6px;font-size:25px}
+.sub{opacity:.85;font-size:13px}
+.card{background:#fff;border-radius:16px;padding:16px;margin-top:14px;box-shadow:0 4px 18px #0000000d}
+.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+label{display:block;font-weight:700;font-size:13px;margin-bottom:6px;color:#123b63}
+input,select{width:100%;padding:12px;border:1px solid #d7dee6;border-radius:10px;background:#fff;font-size:16px;outline:none}
+input:focus,select:focus{border-color:#3577ad;box-shadow:0 0 0 3px #3577ad22}
+.summary{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.stat{text-align:center;border:1px solid #e2e7ec;border-radius:12px;padding:13px}
+.stat small{display:block;color:#687684;margin-bottom:4px}
+.stat strong{font-size:20px;color:#123b63}
+.table-wrap{overflow:auto;-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;min-width:720px;font-size:13px}
+th,td{padding:9px;border:1px solid #dce2e7;text-align:right;white-space:nowrap}
+th{background:#123b63;color:#fff}
+tfoot{font-weight:800;background:#e9eef3}
+.dp{background:#fff7d6}
+.note{font-size:12px;color:#66737f;margin-top:10px}
+@media(max-width:800px){.grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:520px){
+ .app{padding:10px}.grid,.summary{grid-template-columns:1fr}
+ header{padding:17px}.card{padding:12px}
+ h1{font-size:21px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+<h1>حاسبة الأقساط العقارية</h1>
+<div class="sub">حاسبة سريعة لخطط السداد والعقارات</div>
+</header>
+
+<section class="card">
+<div class="grid">
+<div><label>إجمالي سعر الوحدة (جنيه)</label><input type="number" id="totalPriceInput" value="20000000" step="100000" inputmode="numeric"></div>
+<div><label>نسبة المقدم (%)</label><input type="number" id="downpaymentPctInput" value="10" step="0.5" min="0" max="100" inputmode="decimal"></div>
+<div><label>عدد السنين</label><select id="yearsInput"></select></div>
+<div><label>دورية السداد</label><select id="frequencyInput">
+<option value="3">كل 3 شهور</option><option value="6">كل 6 شهور</option><option value="12">كل سنة</option>
+</select></div>
+<div><label>تاريخ التعاقد</label><input type="date" id="startDateInput"></div>
+</div>
+<div class="note">يمكنك تغيير السعر والمقدم ومدة السداد، وستتحدث الحسبة تلقائيًا.</div>
+</section>
+
+<section class="card summary">
+<div class="stat"><small>مبلغ المقدم</small><strong id="summaryDownpayment">0</strong></div>
+<div class="stat"><small>المبلغ المتبقي للأقساط</small><strong id="summaryRemaining">0</strong></div>
+<div class="stat"><small>عدد الأقساط</small><strong id="summaryInstallmentsCount">0</strong></div>
+</section>
+
+<section class="card table-wrap">
+<table>
+<thead><tr><th>#</th><th>البيان</th><th>التاريخ</th><th>قسط الأساس</th><th>إجمالي القسط</th><th>النسبة %</th></tr></thead>
+<tbody id="scheduleBody"></tbody>
+<tfoot><tr><td colspan="3" style="text-align:center">الإجمالي الكلي</td><td id="sumInstallment">0</td><td id="sumTotal">0</td><td>100%</td></tr></tfoot>
+</table>
+</section>
+</div>
+
+<script>
+const yearsSelect=document.getElementById('yearsInput');
+for(let i=1;i<=15;i++){
+ const o=document.createElement('option');o.value=i;
+ o.text=i===1?'سنة':i===2?'سنتان':i+' سنوات';
+ if(i===10)o.selected=true;yearsSelect.appendChild(o);
+}
+const today=new Date();
+document.getElementById('startDateInput').value=today.toISOString().slice(0,10);
+
+function money(n){return Math.round(n).toLocaleString('en-US')}
+function formatDate(d){
+ const months=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+ return String(d.getDate()).padStart(2,'0')+"-"+months[d.getMonth()]+"-"+String(d.getFullYear()).slice(-2);
+}
+function calculateSchedule(){
+ const total=+document.getElementById('totalPriceInput').value||0;
+ const pct=+document.getElementById('downpaymentPctInput').value||0;
+ const years=+document.getElementById('yearsInput').value||1;
+ const freq=+document.getElementById('frequencyInput').value||3;
+ const startVal=document.getElementById('startDateInput').value;
+ const down=total*pct/100, remain=total-down;
+ const count=Math.round(years*12/freq);
+ const installment=count?remain/count:0;
+
+ document.getElementById('summaryDownpayment').textContent=money(down);
+ document.getElementById('summaryRemaining').textContent=money(remain);
+ document.getElementById('summaryInstallmentsCount').textContent=count;
+
+ const tbody=document.getElementById('scheduleBody');tbody.innerHTML='';
+ let sum=down;
+ const dp=document.createElement('tr');dp.className='dp';
+ dp.innerHTML=`<td>-</td><td>المقدم (Downpayment)</td><td>-</td><td>${money(down)}</td><td>${money(down)}</td><td>${pct.toFixed(2)}%</td>`;
+ tbody.appendChild(dp);
+
+ let current=new Date(startVal+"T00:00:00");
+ for(let i=1;i<=count;i++){
+   current.setMonth(current.getMonth()+freq);
+   sum+=installment;
+   const row=document.createElement('tr');
+   const p=total?installment/total*100:0;
+   row.innerHTML=`<td>${i}</td><td>القسط ${i}</td><td>${formatDate(current)}</td><td>${money(installment)}</td><td>${money(installment)}</td><td>${p.toFixed(2)}%</td>`;
+   tbody.appendChild(row);
+ }
+ document.getElementById('sumInstallment').textContent=money(sum);
+ document.getElementById('sumTotal').textContent=money(sum);
+}
+['totalPriceInput','downpaymentPctInput','yearsInput','frequencyInput','startDateInput']
+.forEach(id=>document.getElementById(id).addEventListener('input',calculateSchedule));
+['yearsInput','frequencyInput','startDateInput']
+.forEach(id=>document.getElementById(id).addEventListener('change',calculateSchedule));
+calculateSchedule();
+</script>
+</body>
+</html>
