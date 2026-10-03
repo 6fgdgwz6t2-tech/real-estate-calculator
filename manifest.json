@@ -1,0 +1,10 @@
+{
+  "name": "حاسبة الأقساط العقارية",
+  "short_name": "حاسبة العقارات",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f3f6f9",
+  "theme_color": "#123b63",
+  "lang": "ar",
+  "dir": "rtl"
+}
